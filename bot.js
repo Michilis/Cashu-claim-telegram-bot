@@ -102,7 +102,9 @@ async function handleMessage(msg) {
                     clearInterval(intervalId);
                 }
             } catch (error) {
-                console.error('Error updating message status:', error);
+                if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
+                    console.error('Error updating message status:', error);
+                }
             }
         };
 
@@ -156,7 +158,9 @@ bot.on('callback_query', async (callbackQuery) => {
             );
         }
     } catch (error) {
-        console.error('Error handling callback query:', error);
+        if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
+            console.error('Error handling callback query:', error);
+        }
     }
 });
 
