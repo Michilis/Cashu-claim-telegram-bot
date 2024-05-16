@@ -74,21 +74,25 @@ async function handleMessage(msg) {
 
         // Function to update the message status
         const updateMessageStatus = async () => {
-            const status = await checkTokenStatus(text);
-            if (status === 'spent') {
-                // Update the message and remove the QR code
-                await bot.editMessageCaption('Cashu has been claimed ✅', {
-                    chat_id: chatId,
-                    message_id: message.message_id,
-                });
-                await bot.editMessageReplyMarkup(
-                    { inline_keyboard: [] },
-                    { chat_id: chatId, message_id: message.message_id }
-                );
-                // Delete the QR code file
-                deleteQRCode(qrCodePath);
-                // Clear the interval
-                clearInterval(intervalId);
+            try {
+                const status = await checkTokenStatus(text);
+                if (status === 'spent') {
+                    // Update the message and remove the QR code
+                    await bot.editMessageCaption('Cashu has been claimed ✅', {
+                        chat_id: chatId,
+                        message_id: message.message_id,
+                    });
+                    await bot.editMessageReplyMarkup(
+                        { inline_keyboard: [] },
+                        { chat_id: chatId, message_id: message.message_id }
+                    );
+                    // Delete the QR code file
+                    deleteQRCode(qrCodePath);
+                    // Clear the interval
+                    clearInterval(intervalId);
+                }
+            } catch (error) {
+                console.error('Error updating message status:', error);
             }
         };
 
@@ -131,11 +135,20 @@ bot.on('callback_query', async (callbackQuery) => {
                 { chat_id: chatId, message_id: msg.message_id }
             );
 
-            // Extract QR code file path from message caption
+            // Delete the QR code file
             const qrCodePath = msg.photo[0].file_id;
             deleteQRCode(qrCodePath);
         }
     } catch (error) {
         console.error('Error handling callback query:', error);
     }
+});
+
+// Error handling to keep the bot running
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
