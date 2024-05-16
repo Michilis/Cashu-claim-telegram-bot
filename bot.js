@@ -1,7 +1,10 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const { CashuMint, CashuWallet, getDecodedToken } = require('@cashu/cashu-ts');
+const QRCode = require('qrcode');
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
 const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
 
@@ -22,6 +25,10 @@ bot.on('message', async (msg) => {
         throw 'Invalid token format';
       }
 
+      // Generate QR code for the Cashu token
+      const qrCodePath = path.join(__dirname, `qr-${messageId}.png`);
+      await QRCode.toFile(qrCodePath, tokenEncoded);
+
       const mintUrl = token.token[0].mint;
       const mint = new CashuMint(mintUrl);
       const keys = await mint.getKeys();
@@ -34,16 +41,28 @@ bot.on('message', async (msg) => {
       }
 
       const claimLink = `https://redeem.cashu.me/?token=${encodeURIComponent(tokenEncoded)}`;
+      const callbackData = `check_${Buffer.from(tokenEncoded).toString('base64').slice(0, 50)}`; // Shorten callback data
       const button = {
         reply_markup: {
           inline_keyboard: [
-            [{ text: 'Cashu Pending', callback_data: `check_${tokenEncoded}` }]
+            [{ text: 'Cashu Pending', callback_data: callbackData }]
           ]
         }
       };
 
-      await bot.sendMessage(chatId, 'Cashu Token Detected:', button);
-      checkTokenStatus(wallet, proofs, chatId, messageId, tokenEncoded, claimLink);
+      // Send message with QR code image
+      const sentMessage = await bot.sendPhoto(chatId, qrCodePath, {
+        caption: `Click here to claim to Lightning: [Claim link](${claimLink})`,
+        parse_mode: 'Markdown',
+        reply_markup: button.reply_markup
+      });
+
+      // Delete the original message if it only contains the Cashu token
+      if (text === tokenEncoded) {
+        await bot.deleteMessage(chatId, messageId);
+      }
+
+      checkTokenStatus(wallet, proofs, chatId, sentMessage.message_id, callbackData, claimLink, qrCodePath);
     } catch (error) {
       console.error('Error checking token:', error);
       await bot.sendMessage(chatId, 'Error checking token');
@@ -51,7 +70,7 @@ bot.on('message', async (msg) => {
   }
 });
 
-async function checkTokenStatus(wallet, proofs, chatId, messageId, tokenEncoded, claimLink) {
+async function checkTokenStatus(wallet, proofs, chatId, messageId, callbackData, claimLink, qrCodePath) {
   let isTokenSpent = false;
 
   while (!isTokenSpent) {
@@ -63,12 +82,13 @@ async function checkTokenStatus(wallet, proofs, chatId, messageId, tokenEncoded,
         const button = {
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Claimed ✅', url: claimLink }]
+              [{ text: 'Claimed ✅', callback_data: callbackData }]
             ]
           }
         };
-        const updatedText = 'Cashu Token Detected: Cashu...';
-        await bot.editMessageText(updatedText, { chat_id: chatId, message_id: messageId, reply_markup: button.reply_markup });
+        const updatedText = 'Cashu has been claimed ✅';
+        await bot.editMessageCaption(updatedText, { chat_id: chatId, message_id: messageId, reply_markup: button.reply_markup });
+        fs.unlinkSync(qrCodePath); // Remove the QR code image
       }
     } catch (error) {
       console.error('Error checking token:', error);
@@ -85,7 +105,7 @@ bot.on('callback_query', async (callbackQuery) => {
   const data = callbackQuery.data;
 
   if (data.startsWith('check_')) {
-    const tokenEncoded = data.split('check_')[1];
+    const tokenEncoded = Buffer.from(data.split('check_')[1], 'base64').toString();
     const token = getDecodedToken(tokenEncoded);
     const mintUrl = token.token[0].mint;
     const mint = new CashuMint(mintUrl);
@@ -101,12 +121,14 @@ bot.on('callback_query', async (callbackQuery) => {
         const button = {
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Claimed ✅', url: claimLink }]
+              [{ text: 'Claimed ✅', callback_data: data }]
             ]
           }
         };
-        const updatedText = 'Cashu Token Detected: Cashu...';
-        await bot.editMessageText(updatedText, { chat_id: chatId, message_id: messageId, reply_markup: button.reply_markup });
+        const updatedText = 'Cashu has been claimed ✅';
+        await bot.editMessageCaption(updatedText, { chat_id: chatId, message_id: messageId, reply_markup: button.reply_markup });
+        const qrCodePath = path.join(__dirname, `qr-${messageId}.png`);
+        fs.unlinkSync(qrCodePath); // Remove the QR code image
       } else {
         await bot.answerCallbackQuery(callbackQuery.id, { text: 'Token not yet spent', show_alert: true });
       }
