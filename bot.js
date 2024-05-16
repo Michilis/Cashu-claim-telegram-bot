@@ -3,8 +3,13 @@ const TelegramBot = require('node-telegram-bot-api');
 const { CashuWallet, CashuMint, getDecodedToken } = require('@cashu/cashu-ts');
 const axios = require('axios');
 
-// Telegram Bot Token from environment variables
+// Ensure the environment variable is loaded
 const token = process.env.TELEGRAM_TOKEN;
+if (!token) {
+  console.error("EFATAL: Telegram Bot Token not provided!");
+  process.exit(1);
+}
+
 const bot = new TelegramBot(token, { polling: true });
 
 // Store the information of the message to be updated
@@ -65,7 +70,7 @@ const checkTokenStatus = async (chatId, messageId, tokenEncoded) => {
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
-  
+
   // Assuming Cashu Token is detected by some pattern (for example, it starts with "cashu")
   if (text && text.startsWith('cashu')) {
     const tokenEncoded = text;
