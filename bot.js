@@ -28,7 +28,6 @@ bot.on('message', async (msg) => {
       const wallet = new CashuWallet(keys, mint);
       const proofs = token.token[0].proofs;
 
-      // Assuming the checkProofsSpent method is correct in the latest Cashu library version
       const spentProofs = await wallet.checkProofsSpent(proofs);
       if (spentProofs.length && spentProofs.length === proofs.length) {
         throw 'Token already spent';
