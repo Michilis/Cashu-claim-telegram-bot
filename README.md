@@ -66,16 +66,14 @@ If the token is unclaimed, the button will also contain a link to claim the toke
 ### Built With
 Node.js - JavaScript runtime environment
 node-telegram-bot-api - Telegram Bot API for Node.js
-Cashu - Cashu library for interacting with Cashu Tokens
+Cashu ts - Cashu library for interacting with Cashu Tokens
 dotenv - Loads environment variables from a .env file
 Contributing
 Please read CONTRIBUTING.md for details on our code of conduct, and the process for submitting pull requests to us.
 
-### Versioning
-We use SemVer for versioning. For the versions available, see the tags on this repository.
 
 ### Authors
-Your Name - Initial work - yourusername
+Your Name - Initial work - Michilis
 See also the list of contributors who participated in this project.
 
 ### License
