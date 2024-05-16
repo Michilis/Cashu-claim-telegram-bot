@@ -77,7 +77,7 @@ async function handleMessage(msg) {
             try {
                 const status = await checkTokenStatus(text);
                 if (status === 'spent') {
-                    // Update the message and remove the QR code
+                    // Update the message, remove the QR code, and stop the interval
                     await bot.editMessageCaption('Cashu has been claimed ✅', {
                         chat_id: chatId,
                         message_id: message.message_id,
@@ -85,6 +85,16 @@ async function handleMessage(msg) {
                     await bot.editMessageReplyMarkup(
                         { inline_keyboard: [] },
                         { chat_id: chatId, message_id: message.message_id }
+                    );
+                    await bot.editMessageMedia(
+                        {
+                            type: 'photo',
+                            media: 'https://via.placeholder.com/1', // Placeholder image to remove the QR code
+                        },
+                        {
+                            chat_id: chatId,
+                            message_id: message.message_id,
+                        }
                     );
                     // Delete the QR code file
                     deleteQRCode(qrCodePath);
@@ -125,7 +135,7 @@ bot.on('callback_query', async (callbackQuery) => {
         const status = await checkTokenStatus(token);
 
         if (data === 'pending' && status === 'spent') {
-            // Update the message and remove the QR code if the token is spent
+            // Update the message, remove the QR code, and stop the interval
             await bot.editMessageCaption('Cashu has been claimed ✅', {
                 chat_id: chatId,
                 message_id: msg.message_id,
@@ -134,10 +144,16 @@ bot.on('callback_query', async (callbackQuery) => {
                 { inline_keyboard: [] },
                 { chat_id: chatId, message_id: msg.message_id }
             );
-
-            // Delete the QR code file
-            const qrCodePath = msg.photo[0].file_id;
-            deleteQRCode(qrCodePath);
+            await bot.editMessageMedia(
+                {
+                    type: 'photo',
+                    media: 'https://via.placeholder.com/1', // Placeholder image to remove the QR code
+                },
+                {
+                    chat_id: chatId,
+                    message_id: msg.message_id,
+                }
+            );
         }
     } catch (error) {
         console.error('Error handling callback query:', error);
