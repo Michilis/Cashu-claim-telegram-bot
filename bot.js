@@ -71,6 +71,7 @@ async function handleMessage(msg) {
         // Send the status message
         const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, text, cashuApiUrl), {
             parse_mode: 'Markdown',
+            disable_web_page_preview: true,
             reply_markup: {
                 inline_keyboard: [[{ text: messages.tokenStatusButtonPending, callback_data: 'pending' }]]
             }
@@ -91,12 +92,13 @@ async function handleMessage(msg) {
                     await bot.editMessageText(messages.claimedMessage(username), {
                         chat_id: chatId,
                         message_id: statusMessage.message_id,
-                        parse_mode: 'Markdown'
+                        parse_mode: 'Markdown',
+                        disable_web_page_preview: true,
                     });
-                    await bot.editMessageReplyMarkup(
-                        { inline_keyboard: [[{ text: messages.tokenStatusButtonClaimed, callback_data: 'claimed' }]] },
-                        { chat_id: chatId, message_id: statusMessage.message_id }
-                    );
+                    await bot.editMessageReplyMarkup({}, {
+                        chat_id: chatId,
+                        message_id: statusMessage.message_id
+                    });
                     // Delete the QR code file
                     deleteQRCode(qrCodePath);
                     // Clear the interval
@@ -144,12 +146,13 @@ bot.on('callback_query', async (callbackQuery) => {
             await bot.editMessageText(messages.claimedMessage(username), {
                 chat_id: chatId,
                 message_id: msg.message_id,
-                parse_mode: 'Markdown'
+                parse_mode: 'Markdown',
+                disable_web_page_preview: true,
             });
-            await bot.editMessageReplyMarkup(
-                { inline_keyboard: [[{ text: messages.tokenStatusButtonClaimed, callback_data: 'claimed' }]] },
-                { chat_id: chatId, message_id: msg.message_id }
-            );
+            await bot.editMessageReplyMarkup({}, {
+                chat_id: chatId,
+                message_id: msg.message_id
+            });
         }
     } catch (error) {
         if (error.code !== 'ETELEGRAM' || !error.response || error.response.description !== 'Bad Request: message is not modified') {
