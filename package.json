@@ -1,0 +1,15 @@
+{
+  "name": "cashu-telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot to check the status of Cashu Tokens and update messages with buttons.",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "@cashu/cashu-ts": "^0.1.0",
+    "axios": "^0.24.0",
+    "dotenv": "^10.0.0",
+    "node-telegram-bot-api": "^0.53.0"
+  }
+}
