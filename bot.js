@@ -12,6 +12,7 @@ bot.on('message', async (msg) => {
   const messageId = msg.message_id;
   const text = msg.text;
 
+  // Only process messages that contain a Cashu token
   if (text && text.startsWith('cashu')) {
     try {
       const tokenEncoded = text.trim();
@@ -36,7 +37,7 @@ bot.on('message', async (msg) => {
       const button = {
         reply_markup: {
           inline_keyboard: [
-            [{ text: 'Cashu Pending', url: claimLink }]
+            [{ text: 'Cashu Pending', callback_data: `check_${tokenEncoded}` }]
           ]
         }
       };
@@ -76,3 +77,42 @@ async function checkTokenStatus(wallet, proofs, chatId, messageId, tokenEncoded,
     await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL));
   }
 }
+
+bot.on('callback_query', async (callbackQuery) => {
+  const message = callbackQuery.message;
+  const chatId = message.chat.id;
+  const messageId = message.message_id;
+  const data = callbackQuery.data;
+
+  if (data.startsWith('check_')) {
+    const tokenEncoded = data.split('check_')[1];
+    const token = getDecodedToken(tokenEncoded);
+    const mintUrl = token.token[0].mint;
+    const mint = new CashuMint(mintUrl);
+    const keys = await mint.getKeys();
+    const wallet = new CashuWallet(keys, mint);
+    const proofs = token.token[0].proofs;
+
+    try {
+      const spentProofs = await wallet.checkProofsSpent(proofs);
+
+      if (spentProofs.length && spentProofs.length === proofs.length) {
+        const claimLink = `https://redeem.cashu.me/?token=${encodeURIComponent(tokenEncoded)}`;
+        const button = {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Claimed ✅', url: claimLink }]
+            ]
+          }
+        };
+        const updatedText = 'Cashu Token Detected: Cashu...';
+        await bot.editMessageText(updatedText, { chat_id: chatId, message_id: messageId, reply_markup: button.reply_markup });
+      } else {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Token not yet spent', show_alert: true });
+      }
+    } catch (error) {
+      console.error('Error checking token:', error);
+      await bot.answerCallbackQuery(callbackQuery.id, { text: 'Error checking token status', show_alert: true });
+    }
+  }
+});
