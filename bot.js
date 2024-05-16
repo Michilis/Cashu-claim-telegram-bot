@@ -3,7 +3,6 @@ const { CashuMint, CashuWallet, getDecodedToken } = require('@cashu/cashu-ts');
 const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
-const messages = require('./messages');
 require('dotenv').config();
 
 // Load environment variables
@@ -56,6 +55,7 @@ function deleteQRCode(filePath) {
 async function handleMessage(msg) {
     const chatId = msg.chat.id;
     const text = msg.text;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
 
     try {
         // Decode the token to check if it's valid
@@ -66,10 +66,10 @@ async function handleMessage(msg) {
 
         // Send the message with QR code and initial button
         const message = await bot.sendPhoto(chatId, qrCodePath, {
-            caption: messages.pendingMessage(text, cashuApiUrl),
+            caption: `${username} shared a Cashu token 🥜\n\n${text}`,
             parse_mode: 'Markdown',
             reply_markup: {
-                inline_keyboard: [[{ text: messages.tokenStatusButtonPending, callback_data: 'pending' }]]
+                inline_keyboard: [[{ text: 'Token Status: Pending', callback_data: 'pending' }]]
             }
         });
 
@@ -84,7 +84,7 @@ async function handleMessage(msg) {
                     tokenSpent = true;
 
                     // Update the message, remove the QR code, and stop the interval
-                    await bot.editMessageCaption(messages.claimedMessage, {
+                    await bot.editMessageCaption(`${username} shared a Cashu token 🥜\n\nCash token has been claimed ✅`, {
                         chat_id: chatId,
                         message_id: message.message_id,
                     });
@@ -136,15 +136,16 @@ bot.on('callback_query', async (callbackQuery) => {
     const msg = callbackQuery.message;
     const chatId = msg.chat.id;
     const data = callbackQuery.data;
+    const username = msg.caption.split(' ')[0]; // Extract the username from the message caption
 
     try {
         // Decode the token from the message caption
-        const token = msg.caption.split('token=')[1].split(')')[0];
+        const token = msg.caption.split('\n\n')[1];
         const status = await checkTokenStatus(token);
 
         if (data === 'pending' && status === 'spent') {
             // Update the message, remove the QR code, and stop the interval
-            await bot.editMessageCaption(messages.claimedMessage, {
+            await bot.editMessageCaption(`${username} shared a Cashu token 🥜\n\nCash token has been claimed ✅`, {
                 chat_id: chatId,
                 message_id: msg.message_id,
             });
