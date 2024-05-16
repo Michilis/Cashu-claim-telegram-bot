@@ -51,7 +51,6 @@ These instructions will get you a copy of the project up and running on your loc
 Start the bot using the following command:
 
 sh
-Code kopiëren
 npm start
 Usage
 Once the bot is running, add it to your Telegram group. The bot will automatically detect any Cashu Tokens mentioned in group messages and update the message with the status of the token.
@@ -63,16 +62,8 @@ Unclaimed: "Cashu Pending"
 Claimed: "Claimed ✅"
 If the token is unclaimed, the button will also contain a link to claim the token.
 
-Configuration
-The bot uses a config.json file for additional configuration. The default configuration includes:
 
-json
-Code kopiëren
-{
-  "cashuApiUrl": "https://redeem.cashu.me/"
-}
-
-###Built With
+### Built With
 Node.js - JavaScript runtime environment
 node-telegram-bot-api - Telegram Bot API for Node.js
 Cashu - Cashu library for interacting with Cashu Tokens
@@ -80,17 +71,17 @@ dotenv - Loads environment variables from a .env file
 Contributing
 Please read CONTRIBUTING.md for details on our code of conduct, and the process for submitting pull requests to us.
 
-###Versioning
+### Versioning
 We use SemVer for versioning. For the versions available, see the tags on this repository.
 
-###Authors
+### Authors
 Your Name - Initial work - yourusername
 See also the list of contributors who participated in this project.
 
-###License
+### License
 This project is licensed under the MIT License - see the LICENSE.md file for details.
 
-###Acknowledgments
+### Acknowledgments
 Telegram Bot API
 Cashu
 Node.js
