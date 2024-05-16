@@ -3,6 +3,7 @@ const { CashuMint, CashuWallet, getDecodedToken } = require('@cashu/cashu-ts');
 const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
+const messages = require('./messages');
 require('dotenv').config();
 
 // Load environment variables
@@ -65,10 +66,10 @@ async function handleMessage(msg) {
 
         // Send the message with QR code and initial button
         const message = await bot.sendPhoto(chatId, qrCodePath, {
-            caption: `Click here to claim to Lightning: [Claim link](${cashuApiUrl}?token=${text})`,
+            caption: messages.pendingMessage(text, cashuApiUrl),
             parse_mode: 'Markdown',
             reply_markup: {
-                inline_keyboard: [[{ text: 'Token Status: Pending', callback_data: 'pending' }]]
+                inline_keyboard: [[{ text: messages.tokenStatusButtonPending, callback_data: 'pending' }]]
             }
         });
 
@@ -78,7 +79,7 @@ async function handleMessage(msg) {
                 const status = await checkTokenStatus(text);
                 if (status === 'spent') {
                     // Update the message, remove the QR code, and stop the interval
-                    await bot.editMessageCaption('Cashu has been claimed ✅', {
+                    await bot.editMessageCaption(messages.claimedMessage, {
                         chat_id: chatId,
                         message_id: message.message_id,
                     });
@@ -138,7 +139,7 @@ bot.on('callback_query', async (callbackQuery) => {
 
         if (data === 'pending' && status === 'spent') {
             // Update the message, remove the QR code, and stop the interval
-            await bot.editMessageCaption('Cashu has been claimed ✅', {
+            await bot.editMessageCaption(messages.claimedMessage, {
                 chat_id: chatId,
                 message_id: msg.message_id,
             });
