@@ -4,6 +4,7 @@ const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const messages = require('./messages');
 
 // Load environment variables
 const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -66,10 +67,10 @@ async function handleMessage(msg) {
 
         // Send the message with QR code and initial button
         const message = await bot.sendPhoto(chatId, qrCodePath, {
-            caption: `${username} shared a Cashu token 🥜\n\n${text}`,
+            caption: messages.pendingMessage(username, text, cashuApiUrl),
             parse_mode: 'Markdown',
             reply_markup: {
-                inline_keyboard: [[{ text: 'Token Status: Pending', callback_data: 'pending' }]]
+                inline_keyboard: [[{ text: messages.tokenStatusButtonPending, callback_data: 'pending' }]]
             }
         });
 
@@ -84,12 +85,12 @@ async function handleMessage(msg) {
                     tokenSpent = true;
 
                     // Update the message, remove the QR code, and stop the interval
-                    await bot.editMessageCaption(`${username} shared a Cashu token 🥜\n\nCash token has been claimed ✅`, {
+                    await bot.editMessageCaption(messages.claimedMessage(username), {
                         chat_id: chatId,
                         message_id: message.message_id,
                     });
                     await bot.editMessageReplyMarkup(
-                        { inline_keyboard: [] },
+                        { inline_keyboard: [[{ text: messages.tokenStatusButtonClaimed, callback_data: 'claimed' }]] },
                         { chat_id: chatId, message_id: message.message_id }
                     );
                     await bot.editMessageMedia(
@@ -145,12 +146,12 @@ bot.on('callback_query', async (callbackQuery) => {
 
         if (data === 'pending' && status === 'spent') {
             // Update the message, remove the QR code, and stop the interval
-            await bot.editMessageCaption(`${username} shared a Cashu token 🥜\n\nCash token has been claimed ✅`, {
+            await bot.editMessageCaption(messages.claimedMessage(username), {
                 chat_id: chatId,
                 message_id: msg.message_id,
             });
             await bot.editMessageReplyMarkup(
-                { inline_keyboard: [] },
+                { inline_keyboard: [[{ text: messages.tokenStatusButtonClaimed, callback_data: 'claimed' }]] },
                 { chat_id: chatId, message_id: msg.message_id }
             );
             await bot.editMessageMedia(
