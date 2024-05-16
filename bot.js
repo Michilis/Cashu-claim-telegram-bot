@@ -1,65 +1,102 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
+const { CashuWallet, CashuMint, getDecodedToken } = require('@cashu/cashu-ts');
 const axios = require('axios');
-const { CashuMint, CashuWallet, getDecodedToken } = require('@cashu/cashu-ts');
-const config = require('./config.json');
 
-// Get the bot token from the environment variables
-const botToken = process.env.TELEGRAM_BOT_TOKEN;
+// Telegram Bot Token from environment variables
+const token = process.env.TELEGRAM_TOKEN;
+const bot = new TelegramBot(token, { polling: true });
 
-// Create a new Telegram bot instance
-const bot = new TelegramBot(botToken, { polling: true });
+// Store the information of the message to be updated
+let messageData = {};
 
-// Function to check the status of the Cashu Token
-const checkTokenStatus = async (token) => {
+// Check the Cashu token status
+const checkTokenStatus = async (chatId, messageId, tokenEncoded) => {
   try {
-    const decodedToken = getDecodedToken(token);
-    if (!(decodedToken.token.length > 0) || !(decodedToken.token[0].proofs.length > 0) || !(decodedToken.token[0].mint.length > 0)) {
-      throw new Error('Invalid token format');
-    }
-    const mintUrl = decodedToken.token[0].mint;
+    const token = getDecodedToken(tokenEncoded);
+    const mintUrl = token.token[0].mint;
     const mint = new CashuMint(mintUrl);
     const keys = await mint.getKeys();
     const wallet = new CashuWallet(keys, mint);
-    const proofs = decodedToken.token[0].proofs ?? [];
+    const proofs = token.token[0].proofs ?? [];
+
+    // Check if the proofs are spent
     const spentProofs = await wallet.checkProofsSpent(proofs);
-    return spentProofs.length === proofs.length ? 'claimed' : 'unclaimed';
-  } catch (error) {
-    console.error(error);
-    return 'error';
+    const allSpent = spentProofs.length && spentProofs.length === proofs.length;
+
+    if (allSpent) {
+      await bot.editMessageText(
+        `Cashu...`,
+        {
+          chat_id: chatId,
+          message_id: messageId,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Claimed ✅', callback_data: 'claimed' }]
+            ]
+          }
+        }
+      );
+      clearInterval(messageData[messageId].intervalId);  // Stop checking if spent
+    } else {
+      await bot.editMessageReplyMarkup(
+        {
+          inline_keyboard: [
+            [{ text: 'Cashu Pending', callback_data: 'pending' }]
+          ]
+        },
+        { chat_id: chatId, message_id: messageId }
+      );
+    }
+  } catch (err) {
+    console.error('Error checking token:', err);
+    await bot.editMessageReplyMarkup(
+      {
+        inline_keyboard: [
+          [{ text: 'Error checking token', callback_data: 'error' }]
+        ]
+      },
+      { chat_id: chatId, message_id: messageId }
+    );
   }
 };
 
-// Listener for messages in group chats
-bot.on('message', async (msg) => {
+// Listen for any kind of message
+bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
+  
+  // Assuming Cashu Token is detected by some pattern (for example, it starts with "cashu")
+  if (text && text.startsWith('cashu')) {
+    const tokenEncoded = text;
 
-  // Regex to identify Cashu Tokens in the message
-  const tokenRegex = /cashu[A-Za-z0-9]+/;
-  const tokenMatch = text.match(tokenRegex);
+    bot.sendMessage(chatId, 'Checking token...', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Cashu Pending', callback_data: 'pending' }]
+        ]
+      }
+    }).then((sentMessage) => {
+      const messageId = sentMessage.message_id;
 
-  if (tokenMatch) {
-    const token = tokenMatch[0];
-    const tokenStatus = await checkTokenStatus(token);
+      // Store the interval ID to clear later
+      const intervalId = setInterval(() => {
+        checkTokenStatus(chatId, messageId, tokenEncoded);
+      }, 5000); // Check every 5 seconds
 
-    let buttonText;
-    if (tokenStatus === 'unclaimed') {
-      buttonText = 'Cashu Pending';
-    } else if (tokenStatus === 'claimed') {
-      buttonText = 'Claimed ✅';
-    } else {
-      buttonText = 'Error Checking Token';
-    }
-
-    const claimLink = `${config.cashuApiUrl}?token=${encodeURIComponent(token)}`;
-    const inlineKeyboard = {
-      inline_keyboard: [[{ text: buttonText, url: claimLink }]],
-    };
-
-    bot.sendMessage(chatId, 'Check the status of your Cashu Token:', {
-      reply_to_message_id: msg.message_id,
-      reply_markup: inlineKeyboard,
+      // Save message data to update it later
+      messageData[messageId] = { chatId, tokenEncoded, intervalId };
     });
   }
+});
+
+// Handle button presses (if needed)
+bot.on('callback_query', (callbackQuery) => {
+  const message = callbackQuery.message;
+  const messageId = message.message_id;
+  const chatId = message.chat.id;
+  const data = callbackQuery.data;
+
+  // If the button was pressed, you could take additional actions here if needed
+  console.log(`Button pressed: ${data}`);
 });
