@@ -96,8 +96,8 @@ async function handleMessage(msg) {
             }
         };
 
-        // Set interval to check the token status every 2 seconds
-        const intervalId = setInterval(updateMessageStatus, 2000);
+        // Set interval to check the token status every 4 seconds
+        const intervalId = setInterval(updateMessageStatus, 4000);
 
         // Delete the original token message if it's a valid token
         await bot.deleteMessage(chatId, msg.message_id);
