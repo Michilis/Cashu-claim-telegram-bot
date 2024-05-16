@@ -126,7 +126,13 @@ async function handleMessage(msg) {
 
 // Listener for any text message
 bot.on('message', (msg) => {
-    handleMessage(msg);
+    if (msg.chat.type === 'private') {
+        // If the message is sent in a DM, send the help message
+        bot.sendMessage(msg.chat.id, 'Send a valid Cashu token to check its status.');
+    } else if (msg.text && msg.text.startsWith('cashu')) {
+        // Only handle the message if it contains a valid Cashu token
+        handleMessage(msg);
+    }
 });
 
 // Handle callback queries (button presses)
