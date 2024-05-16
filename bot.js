@@ -56,7 +56,7 @@ function deleteQRCode(filePath) {
 async function handleMessage(msg) {
     const chatId = msg.chat.id;
     const text = msg.text;
-    const username = msg.from.username ? msg.from.username : msg.from.first_name;
+    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
 
     try {
         // Decode the token to check if it's valid
@@ -65,9 +65,11 @@ async function handleMessage(msg) {
         // Generate QR code
         const qrCodePath = await generateQRCode(text);
 
-        // Send the message with QR code and initial button
-        const message = await bot.sendPhoto(chatId, qrCodePath, {
-            caption: messages.pendingMessage(username, text, cashuApiUrl),
+        // Send the QR code message
+        const qrMessage = await bot.sendPhoto(chatId, qrCodePath);
+
+        // Send the status message
+        const statusMessage = await bot.sendMessage(chatId, messages.pendingMessage(username, text, cashuApiUrl), {
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [[{ text: messages.tokenStatusButtonPending, callback_data: 'pending' }]]
@@ -84,24 +86,16 @@ async function handleMessage(msg) {
                 if (status === 'spent') {
                     tokenSpent = true;
 
-                    // Update the message, remove the QR code, and stop the interval
-                    await bot.editMessageCaption(messages.claimedMessage(username), {
+                    // Delete the QR code message and update the status message
+                    await bot.deleteMessage(chatId, qrMessage.message_id);
+                    await bot.editMessageText(messages.claimedMessage(username), {
                         chat_id: chatId,
-                        message_id: message.message_id,
+                        message_id: statusMessage.message_id,
+                        parse_mode: 'Markdown'
                     });
                     await bot.editMessageReplyMarkup(
                         { inline_keyboard: [[{ text: messages.tokenStatusButtonClaimed, callback_data: 'claimed' }]] },
-                        { chat_id: chatId, message_id: message.message_id }
-                    );
-                    await bot.editMessageMedia(
-                        {
-                            type: 'photo',
-                            media: 'https://via.placeholder.com/1', // Placeholder image to remove the QR code
-                        },
-                        {
-                            chat_id: chatId,
-                            message_id: message.message_id,
-                        }
+                        { chat_id: chatId, message_id: statusMessage.message_id }
                     );
                     // Delete the QR code file
                     deleteQRCode(qrCodePath);
@@ -147,23 +141,14 @@ bot.on('callback_query', async (callbackQuery) => {
 
         if (data === 'pending' && status === 'spent') {
             // Update the message, remove the QR code, and stop the interval
-            await bot.editMessageCaption(messages.claimedMessage(username), {
+            await bot.editMessageText(messages.claimedMessage(username), {
                 chat_id: chatId,
                 message_id: msg.message_id,
+                parse_mode: 'Markdown'
             });
             await bot.editMessageReplyMarkup(
                 { inline_keyboard: [[{ text: messages.tokenStatusButtonClaimed, callback_data: 'claimed' }]] },
                 { chat_id: chatId, message_id: msg.message_id }
-            );
-            await bot.editMessageMedia(
-                {
-                    type: 'photo',
-                    media: 'https://via.placeholder.com/1', // Placeholder image to remove the QR code
-                },
-                {
-                    chat_id: chatId,
-                    message_id: msg.message_id,
-                }
             );
         }
     } catch (error) {
