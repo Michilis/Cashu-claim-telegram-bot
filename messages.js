@@ -1,6 +1,6 @@
 module.exports = {
   pendingMessage: (username, token, cashuApiUrl) => `
-@${username} shared a Cashu token 🥜
+${username} shared a Cashu token 🥜
 
 Click here to claim to Lightning: [Claim link](${cashuApiUrl}?token=${token})
   `,
