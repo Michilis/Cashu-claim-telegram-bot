@@ -9,6 +9,7 @@ const messages = require('./messages');
 // Load environment variables
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const cashuApiUrl = process.env.CASHU_API_URL;
+const claimedDisposeTiming = parseInt(process.env.CLAIMED_DISPOSE_TIMING) || 10;
 
 const bot = new TelegramBot(token, { polling: true });
 
@@ -50,6 +51,24 @@ function deleteQRCode(filePath) {
     fs.unlink(filePath, (err) => {
         if (err) console.error(`Error deleting file ${filePath}:`, err);
     });
+}
+
+// Function to save user data
+function saveUserData(userId, data) {
+    const dataDir = './data';
+    if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir);
+    }
+    fs.writeFileSync(path.join(dataDir, `${userId}.json`), JSON.stringify(data, null, 2));
+}
+
+// Function to load user data
+function loadUserData(userId) {
+    const dataFilePath = path.join('./data', `${userId}.json`);
+    if (fs.existsSync(dataFilePath)) {
+        return JSON.parse(fs.readFileSync(dataFilePath));
+    }
+    return null;
 }
 
 // Function to handle new messages
@@ -99,6 +118,12 @@ async function handleMessage(msg) {
                         chat_id: chatId,
                         message_id: statusMessage.message_id
                     });
+
+                    // Schedule deletion of the claimed message after the specified time
+                    setTimeout(() => {
+                        bot.deleteMessage(chatId, statusMessage.message_id);
+                    }, claimedDisposeTiming * 60000);
+
                     // Delete the QR code file
                     deleteQRCode(qrCodePath);
                     // Clear the interval
@@ -127,8 +152,14 @@ async function handleMessage(msg) {
 // Listener for any text message
 bot.on('message', (msg) => {
     if (msg.chat.type === 'private') {
-        // If the message is sent in a DM, send the help message
-        bot.sendMessage(msg.chat.id, 'Send a valid Cashu token to check its status.');
+        const userData = loadUserData(msg.from.id);
+        if (!userData || !userData.lightningAddress) {
+            // If no address is set, start tutorial
+            bot.sendMessage(msg.chat.id, messages.helpMessage);
+        } else if (msg.text && msg.text.startsWith('cashu')) {
+            // Handle the message if it contains a valid Cashu token
+            handleMessage(msg);
+        }
     } else if (msg.text && msg.text.startsWith('cashu')) {
         // Only handle the message if it contains a valid Cashu token
         handleMessage(msg);
@@ -165,6 +196,28 @@ bot.on('callback_query', async (callbackQuery) => {
             console.error('Error handling callback query:', error);
         }
     }
+});
+
+// Command to add or update Lightning address
+bot.onText(/\/add (.+)/, (msg, match) => {
+    const chatId = msg.chat.id;
+    const lightningAddress = match[1];
+    const userId = msg.from.id;
+
+    // Validate the Lightning address (simple email format validation)
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lightningAddress)) {
+        const userData = { lightningAddress };
+        saveUserData(userId, userData);
+        bot.sendMessage(chatId, `Your Lightning address has been set to: ${lightningAddress}`);
+    } else {
+        bot.sendMessage(chatId, 'Invalid Lightning address. Please provide a valid email-like address.');
+    }
+});
+
+// Command to start tutorial
+bot.onText(/\/start/, (msg) => {
+    const chatId = msg.chat.id;
+    bot.sendMessage(chatId, messages.startMessage);
 });
 
 // Error handling to keep the bot running
