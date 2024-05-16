@@ -95,7 +95,7 @@ async function handleMessage(msg) {
                         parse_mode: 'Markdown',
                         disable_web_page_preview: true,
                     });
-                    await bot.editMessageReplyMarkup({}, {
+                    await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
                         chat_id: chatId,
                         message_id: statusMessage.message_id
                     });
@@ -149,7 +149,7 @@ bot.on('callback_query', async (callbackQuery) => {
                 parse_mode: 'Markdown',
                 disable_web_page_preview: true,
             });
-            await bot.editMessageReplyMarkup({}, {
+            await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
                 chat_id: chatId,
                 message_id: msg.message_id
             });
