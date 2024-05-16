@@ -1,140 +1,131 @@
 require('dotenv').config();
 const TelegramBot = require('node-telegram-bot-api');
 const { CashuMint, CashuWallet, getDecodedToken } = require('@cashu/cashu-ts');
-const QRCode = require('qrcode');
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+const qrcode = require('qrcode');
 
-const bot = new TelegramBot(process.env.TELEGRAM_TOKEN, { polling: true });
+// Replace 'YOUR_TELEGRAM_BOT_TOKEN' with your actual bot token from the .env file
+const token = process.env.TELEGRAM_TOKEN;
+const bot = new TelegramBot(token, { polling: true });
 
-const CHECK_INTERVAL = 5000; // 5 seconds
-
-bot.on('message', async (msg) => {
-  const chatId = msg.chat.id;
-  const messageId = msg.message_id;
-  const text = msg.text;
-
-  // Only process messages that contain a Cashu token
-  if (text && text.startsWith('cashu')) {
+// Function to check token status
+async function checkTokenStatus(tokenEncoded) {
     try {
-      const tokenEncoded = text.trim();
-      const token = getDecodedToken(tokenEncoded);
-      
-      if (!(token.token.length > 0) || !(token.token[0].proofs.length > 0) || !(token.token[0].mint.length > 0)) {
-        throw 'Invalid token format';
-      }
-
-      // Generate QR code for the Cashu token
-      const qrCodePath = path.join(__dirname, `qr-${messageId}.png`);
-      await QRCode.toFile(qrCodePath, tokenEncoded);
-
-      const mintUrl = token.token[0].mint;
-      const mint = new CashuMint(mintUrl);
-      const keys = await mint.getKeys();
-      const wallet = new CashuWallet(keys, mint);
-      const proofs = token.token[0].proofs;
-
-      const spentProofs = await wallet.checkProofsSpent(proofs);
-      if (spentProofs.length && spentProofs.length === proofs.length) {
-        throw 'Token already spent';
-      }
-
-      const claimLink = `https://redeem.cashu.me/?token=${encodeURIComponent(tokenEncoded)}`;
-      const callbackData = `check_${Buffer.from(tokenEncoded).toString('base64').slice(0, 50)}`; // Shorten callback data
-      const button = {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: 'Cashu Pending', callback_data: callbackData }]
-          ]
-        }
-      };
-
-      // Send message with QR code image
-      const sentMessage = await bot.sendPhoto(chatId, qrCodePath, {
-        caption: `Click here to claim to Lightning: [Claim link](${claimLink})`,
-        parse_mode: 'Markdown',
-        reply_markup: button.reply_markup
-      });
-
-      // Delete the original message if it only contains the Cashu token
-      if (text === tokenEncoded) {
-        await bot.deleteMessage(chatId, messageId);
-      }
-
-      checkTokenStatus(wallet, proofs, chatId, sentMessage.message_id, callbackData, claimLink, qrCodePath);
+        const token = getDecodedToken(tokenEncoded);
+        const mintUrl = token.token[0].mint;
+        const mint = new CashuMint(mintUrl);
+        const keys = await mint.getKeys();
+        const wallet = new CashuWallet(mint, keys);
+        const proofs = token.token[0].proofs;
+        const spentProofs = await wallet.checkProofsSpent(proofs);
+        return spentProofs.length === proofs.length ? 'spent' : 'pending';
     } catch (error) {
-      console.error('Error checking token:', error);
-      await bot.sendMessage(chatId, 'Error checking token');
+        console.error('Error checking token:', error);
+        throw error;
     }
-  }
-});
-
-async function checkTokenStatus(wallet, proofs, chatId, messageId, callbackData, claimLink, qrCodePath) {
-  let isTokenSpent = false;
-
-  while (!isTokenSpent) {
-    try {
-      const spentProofs = await wallet.checkProofsSpent(proofs);
-
-      if (spentProofs.length && spentProofs.length === proofs.length) {
-        isTokenSpent = true;
-        const button = {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: 'Claimed ✅', callback_data: callbackData }]
-            ]
-          }
-        };
-        const updatedText = 'Cashu has been claimed ✅';
-        await bot.editMessageCaption(updatedText, { chat_id: chatId, message_id: messageId, reply_markup: button.reply_markup });
-        fs.unlinkSync(qrCodePath); // Remove the QR code image
-      }
-    } catch (error) {
-      console.error('Error checking token:', error);
-    }
-
-    await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL));
-  }
 }
 
-bot.on('callback_query', async (callbackQuery) => {
-  const message = callbackQuery.message;
-  const chatId = message.chat.id;
-  const messageId = message.message_id;
-  const data = callbackQuery.data;
-
-  if (data.startsWith('check_')) {
-    const tokenEncoded = Buffer.from(data.split('check_')[1], 'base64').toString();
-    const token = getDecodedToken(tokenEncoded);
-    const mintUrl = token.token[0].mint;
-    const mint = new CashuMint(mintUrl);
-    const keys = await mint.getKeys();
-    const wallet = new CashuWallet(keys, mint);
-    const proofs = token.token[0].proofs;
-
+// Generate QR code
+async function generateQRCode(data) {
     try {
-      const spentProofs = await wallet.checkProofsSpent(proofs);
-
-      if (spentProofs.length && spentProofs.length === proofs.length) {
-        const claimLink = `https://redeem.cashu.me/?token=${encodeURIComponent(tokenEncoded)}`;
-        const button = {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: 'Claimed ✅', callback_data: data }]
-            ]
-          }
-        };
-        const updatedText = 'Cashu has been claimed ✅';
-        await bot.editMessageCaption(updatedText, { chat_id: chatId, message_id: messageId, reply_markup: button.reply_markup });
-        const qrCodePath = path.join(__dirname, `qr-${messageId}.png`);
-        fs.unlinkSync(qrCodePath); // Remove the QR code image
-      } else {
-        await bot.answerCallbackQuery(callbackQuery.id, { text: 'Token not yet spent', show_alert: true });
-      }
-    } catch (error) {
-      console.error('Error checking token:', error);
-      await bot.answerCallbackQuery(callbackQuery.id, { text: 'Error checking token status', show_alert: true });
+        return await qrcode.toBuffer(data);
+    } catch (err) {
+        console.error('Error generating QR code:', err);
+        throw err;
     }
-  }
+}
+
+// Function to handle incoming messages
+bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    const text = msg.text;
+
+    // Check if the message contains a Cashu token
+    if (text && text.startsWith('cashu')) {
+        try {
+            const status = await checkTokenStatus(text);
+            const qrCodeImage = await generateQRCode(text);
+            const messageOptions = {
+                caption: `Pending\n\nClick here to claim to Lightning\n`,
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: `Token Status: ${status}`, callback_data: 'check_token_status' }]
+                    ]
+                }
+            };
+            const sentMessage = await bot.sendPhoto(chatId, qrCodeImage, messageOptions);
+
+            // Delete the original message if it contains only the token
+            if (text.trim() === msg.text) {
+                await bot.deleteMessage(chatId, msg.message_id);
+            }
+
+            // Store the sent message details to update later
+            await bot.setData(sentMessage.message_id, {
+                chatId: chatId,
+                tokenEncoded: text
+            });
+
+        } catch (error) {
+            bot.sendMessage(chatId, 'There was an error processing your Cashu token.');
+        }
+    }
 });
+
+// Handle button callback
+bot.on('callback_query', async (callbackQuery) => {
+    const message = callbackQuery.message;
+    const chatId = message.chat.id;
+    const messageId = message.message_id;
+    const callbackData = callbackQuery.data;
+
+    if (callbackData === 'check_token_status') {
+        try {
+            const tokenData = await bot.getData(messageId);
+            const tokenEncoded = tokenData.tokenEncoded;
+            const status = await checkTokenStatus(tokenEncoded);
+            const updatedCaption = status === 'spent' ? 'Cashu has been claimed ✅' : message.caption;
+
+            const messageOptions = {
+                caption: updatedCaption,
+                parse_mode: 'Markdown',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: `Token Status: ${status}`, callback_data: 'check_token_status' }]
+                    ]
+                }
+            };
+
+            if (status === 'spent') {
+                // Remove QR code
+                await bot.editMessageMedia({ type: 'photo', media: '' }, { chat_id: chatId, message_id: messageId });
+            }
+
+            await bot.editMessageCaption(updatedCaption, {
+                chat_id: chatId,
+                message_id: messageId,
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: `Token Status: ${status}`, callback_data: 'check_token_status' }]
+                    ]
+                }
+            });
+
+        } catch (error) {
+            bot.sendMessage(chatId, 'There was an error checking the Cashu token status.');
+        }
+    }
+});
+
+// In-memory data store for simplicity (could be replaced with a database)
+const dataStore = {};
+
+bot.setData = (messageId, data) => {
+    dataStore[messageId] = data;
+};
+
+bot.getData = (messageId) => {
+    return dataStore[messageId];
+};
+
+console.log('Cashu Telegram bot is running...');
