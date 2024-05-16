@@ -56,7 +56,7 @@ function deleteQRCode(filePath) {
 async function handleMessage(msg) {
     const chatId = msg.chat.id;
     const text = msg.text;
-    const username = msg.from.username ? `@${msg.from.username}` : msg.from.first_name;
+    const username = msg.from.username ? msg.from.username : msg.from.first_name;
 
     try {
         // Decode the token to check if it's valid
@@ -123,7 +123,8 @@ async function handleMessage(msg) {
 
     } catch (error) {
         console.error('Error processing message:', error);
-        // If the text is not a valid Cashu token, do nothing or handle the error
+        // Send error message if token is invalid
+        await bot.sendMessage(chatId, messages.errorMessage);
     }
 }
 
@@ -137,7 +138,7 @@ bot.on('callback_query', async (callbackQuery) => {
     const msg = callbackQuery.message;
     const chatId = msg.chat.id;
     const data = callbackQuery.data;
-    const username = msg.caption.split(' ')[0]; // Extract the username from the message caption
+    const username = msg.caption.split(' ')[0].substring(1); // Extract the username from the message caption
 
     try {
         // Decode the token from the message caption
