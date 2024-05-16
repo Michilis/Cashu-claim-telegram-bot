@@ -5,7 +5,7 @@ ${username} shared a Cashu token 🥜
 Click here to claim to Lightning: [Claim link](${cashuApiUrl}?token=${token})
   `,
   claimedMessage: (username) => `
-@${username} shared a Cashu token 🥜
+${username} shared a Cashu token 🥜
 
 Cashu token has been claimed ✅
   `,
