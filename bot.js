@@ -73,11 +73,16 @@ async function handleMessage(msg) {
             }
         });
 
+        let tokenSpent = false;
+
         // Function to update the message status
         const updateMessageStatus = async () => {
+            if (tokenSpent) return; // Stop updating if token is already spent
             try {
                 const status = await checkTokenStatus(text);
                 if (status === 'spent') {
+                    tokenSpent = true;
+
                     // Update the message, remove the QR code, and stop the interval
                     await bot.editMessageCaption(messages.claimedMessage, {
                         chat_id: chatId,
