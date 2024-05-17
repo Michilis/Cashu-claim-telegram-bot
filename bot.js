@@ -10,6 +10,7 @@ const messages = require('./messages');
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const cashuApiUrl = process.env.CASHU_API_URL;
 const claimedDisposeTiming = parseInt(process.env.CLAIMED_DISPOSE_TIMING) || 10;
+const checkInterval = parseInt(process.env.CHECK_INTERVAL) * 1000 || 4000;
 
 const bot = new TelegramBot(token, { polling: true });
 
@@ -136,16 +137,18 @@ async function handleMessage(msg) {
             }
         };
 
-        // Set interval to check the token status every 4 seconds
-        const intervalId = setInterval(updateMessageStatus, 4000);
+        // Set interval to check the token status
+        const intervalId = setInterval(updateMessageStatus, checkInterval);
 
         // Delete the original token message if it's a valid token
         await bot.deleteMessage(chatId, msg.message_id);
 
     } catch (error) {
         console.error('Error processing message:', error);
-        // Send error message if token is invalid
-        await bot.sendMessage(chatId, messages.errorMessage);
+        // Send error message if token is invalid only in private chats
+        if (msg.chat.type === 'private') {
+            await bot.sendMessage(chatId, messages.errorMessage);
+        }
     }
 }
 
@@ -160,9 +163,13 @@ bot.on('message', (msg) => {
             // Handle the message if it contains a valid Cashu token
             handleMessage(msg);
         }
-    } else if (msg.text && msg.text.startsWith('cashu')) {
-        // Only handle the message if it contains a valid Cashu token
-        handleMessage(msg);
+    } else if (msg.text && msg.text.startsWith('/unstuckcashu') && msg.reply_to_message && msg.reply_to_message.from.id === bot.id) {
+        // Only admins can use the /unstuckcashu command
+        bot.getChatMember(msg.chat.id, msg.from.id).then(member => {
+            if (member.status === 'administrator' || member.status === 'creator') {
+                handleMessage(msg.reply_to_message);
+            }
+        });
     }
 });
 
