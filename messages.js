@@ -5,7 +5,7 @@ ${username} shared a Cashu token 🥜
 Click here to claim to Lightning: [Claim link](${cashuApiUrl}?token=${token})
   `,
   claimedMessage: (username) => `
-${username} shared a Cashu token 🥜
+@${username} shared a Cashu token 🥜
 
 Cashu token has been claimed ✅
   `,
@@ -14,19 +14,27 @@ Cashu token has been claimed ✅
   tokenStatusButtonPending: 'Token Status: Pending',
   tokenStatusButtonClaimed: 'Token Status: Claimed',
   helpMessage: `
-Welcome to the Cashu Telegram Bot!
+Welcome to the Cashu Claim Bot! Here’s how to get started:
 
-To start, please add your Lightning address (LNURLp format) by using the command:
-  /add your-address@domain.com
+1. **Using the Bot in Private Chat:**
+   - Send me a Cashu token, and I’ll provide you with a QR code and the status of the token.
 
-Once your address is set, you can send a Cashu token to this bot and it will be automatically sent to your Lightning address.
+2. **Using the Bot in Group Chats:**
+   - Add me to a group and give me admin permissions with only the 'Remove Messages' permission enabled.
+   - I only need this permission to remove Cashu tokens after processing them to keep the chat clean and tidy.
+
+Happy Satoshi hunting!
   `,
   startMessage: `
-Welcome! Let's set up your Lightning address.
+Welcome to the Cashu Claim Bot! Here’s how to get started:
 
-Please provide your Lightning address (LNURLp format, looks like an email) using the command:
-  /add your-address@domain.com
+1. **Using the Bot in Private Chat:**
+   - Send me a Cashu token, and I’ll provide you with a QR code and the status of the token.
 
-After setting your address, you can send Cashu tokens to this bot and they will be sent to your Lightning address automatically.
-  `
+2. **Using the Bot in Group Chats:**
+   - Add me to a group and give me admin permissions with only the 'Remove Messages' permission enabled.
+   - I only need this permission to remove Cashu tokens after processing them to keep the chat clean and tidy.
+
+Happy Satoshi hunting!
+  `,
 };
