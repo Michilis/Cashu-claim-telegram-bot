@@ -1,4 +1,7 @@
-# Cashu-claim-telegram-bot
+# Moved to https://github.com/CashuMints-space/CashuMints-Telegram-bot/
+
+
+# Cashu-checker-telegram-bot
 
 A Telegram bot to check the status of Cashu Tokens in group messages and update messages with buttons indicating whether the token is claimed or unclaimed. If unclaimed, the bot provides a link to claim the Cashu Token.
 
